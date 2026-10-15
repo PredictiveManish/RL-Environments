@@ -1,0 +1,7 @@
+gymnasium>=0.29
+numpy>=1.24
+
+# Optional — only needed for real RL training (scripts/train_ppo.py).
+# Pulls in PyTorch, so install separately if you want it:
+#   pip install stable-baselines3
+stable-baselines3>=2.0

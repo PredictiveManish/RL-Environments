@@ -1,0 +1,815 @@
+{
+ "meta": {
+  "name": "IKGPTU Main Campus, Kapurthala",
+  "university": "I. K. Gujral Punjab Technical University",
+  "location": "Jalandhar-Kapurthala Highway, VPO Ibban, Kapurthala 144603, Punjab, India",
+  "origin_lon": 75.457137,
+  "origin_lat": 31.353348,
+  "crs": "local ENU metres; x=east, y=north; origin at campus centroid",
+  "boundary_source": "OpenStreetMap way 123246355 via Nominatim (ODbL)",
+  "building_source": "illustrative layout inside the real boundary; see refresh_from_osm.py",
+  "area_acres": 79.1
+ },
+ "boundary": [
+  [
+   -693,
+   39
+  ],
+  [
+   -372,
+   -45
+  ],
+  [
+   -125,
+   -108
+  ],
+  [
+   185,
+   -191
+  ],
+  [
+   248,
+   -206
+  ],
+  [
+   648,
+   -364
+  ],
+  [
+   749,
+   -166
+  ],
+  [
+   204,
+   23
+  ],
+  [
+   180,
+   26
+  ],
+  [
+   169,
+   27
+  ],
+  [
+   158,
+   30
+  ],
+  [
+   145,
+   35
+  ],
+  [
+   131,
+   44
+  ],
+  [
+   124,
+   51
+  ],
+  [
+   -8,
+   98
+  ],
+  [
+   -166,
+   157
+  ],
+  [
+   -357,
+   226
+  ],
+  [
+   -525,
+   286
+  ],
+  [
+   -693,
+   39
+  ]
+ ],
+ "buildings": [
+  {
+   "id": "admin",
+   "name": "Main Administrative Building",
+   "kind": "admin",
+   "height": 18,
+   "polygon": [
+    [
+     -259.8,
+     64.0
+    ],
+    [
+     -206.5,
+     50.7
+    ],
+    [
+     -200.2,
+     76.0
+    ],
+    [
+     -253.5,
+     89.3
+    ]
+   ],
+   "centroid": [
+    -230.0,
+    70.0
+   ],
+   "footprint_m2": 1430
+  },
+  {
+   "id": "library",
+   "name": "Knowledge Resource Centre",
+   "kind": "library",
+   "height": 20,
+   "polygon": [
+    [
+     -145.5,
+     50.9
+    ],
+    [
+     -101.8,
+     40.0
+    ],
+    [
+     -94.5,
+     69.1
+    ],
+    [
+     -138.2,
+     80.0
+    ]
+   ],
+   "centroid": [
+    -120.0,
+    60.0
+   ],
+   "footprint_m2": 1350
+  },
+  {
+   "id": "auditorium",
+   "name": "Sri Guru Nanak Dev Ji Auditorium",
+   "kind": "auditorium",
+   "height": 22,
+   "polygon": [
+    [
+     -47.9,
+     17.1
+    ],
+    [
+     12.2,
+     2.1
+    ],
+    [
+     21.9,
+     40.9
+    ],
+    [
+     -38.2,
+     55.9
+    ]
+   ],
+   "centroid": [
+    -13.0,
+    29.0
+   ],
+   "footprint_m2": 2480
+  },
+  {
+   "id": "acad_a",
+   "name": "Academic Block A (Engineering)",
+   "kind": "academic",
+   "height": 16,
+   "polygon": [
+    [
+     -467.3,
+     124.9
+    ],
+    [
+     -399.4,
+     107.9
+    ],
+    [
+     -392.7,
+     135.1
+    ],
+    [
+     -460.6,
+     152.1
+    ]
+   ],
+   "centroid": [
+    -430.0,
+    130.0
+   ],
+   "footprint_m2": 1960
+  },
+  {
+   "id": "acad_b",
+   "name": "Academic Block B (Engineering)",
+   "kind": "academic",
+   "height": 16,
+   "polygon": [
+    [
+     -367.3,
+     54.9
+    ],
+    [
+     -299.4,
+     37.9
+    ],
+    [
+     -292.7,
+     65.1
+    ],
+    [
+     -360.6,
+     82.1
+    ]
+   ],
+   "centroid": [
+    -330.0,
+    60.0
+   ],
+   "footprint_m2": 1960
+  },
+  {
+   "id": "acad_c",
+   "name": "Academic Block C (Management)",
+   "kind": "academic",
+   "height": 16,
+   "polygon": [
+    [
+     -549.8,
+     184.0
+    ],
+    [
+     -496.5,
+     170.7
+    ],
+    [
+     -490.2,
+     196.0
+    ],
+    [
+     -543.5,
+     209.3
+    ]
+   ],
+   "centroid": [
+    -520.0,
+    190.0
+   ],
+   "footprint_m2": 1430
+  },
+  {
+   "id": "hostel_m",
+   "name": "Boys Hostel",
+   "kind": "hostel",
+   "height": 15,
+   "polygon": [
+    [
+     83.3,
+     16.3
+    ],
+    [
+     131.8,
+     4.2
+    ],
+    [
+     136.7,
+     23.7
+    ],
+    [
+     88.2,
+     35.8
+    ]
+   ],
+   "centroid": [
+    110.0,
+    20.0
+   ],
+   "footprint_m2": 1000
+  },
+  {
+   "id": "hostel_f",
+   "name": "Girls Hostel",
+   "kind": "hostel",
+   "height": 15,
+   "polygon": [
+    [
+     153.3,
+     -13.7
+    ],
+    [
+     201.8,
+     -25.8
+    ],
+    [
+     206.7,
+     -6.3
+    ],
+    [
+     158.2,
+     5.8
+    ]
+   ],
+   "centroid": [
+    180.0,
+    -10.0
+   ],
+   "footprint_m2": 1000
+  },
+  {
+   "id": "cafeteria",
+   "name": "Cafeteria & Mess",
+   "kind": "cafeteria",
+   "height": 10,
+   "polygon": [
+    [
+     227.6,
+     -47.3
+    ],
+    [
+     266.4,
+     -57.0
+    ],
+    [
+     272.4,
+     -32.7
+    ],
+    [
+     233.6,
+     -23.0
+    ]
+   ],
+   "centroid": [
+    250.0,
+    -40.0
+   ],
+   "footprint_m2": 1000
+  },
+  {
+   "id": "workshop",
+   "name": "Workshop & Laboratories",
+   "kind": "workshop",
+   "height": 14,
+   "polygon": [
+    [
+     297.3,
+     -67.3
+    ],
+    [
+     355.5,
+     -81.8
+    ],
+    [
+     362.7,
+     -52.7
+    ],
+    [
+     304.5,
+     -38.2
+    ]
+   ],
+   "centroid": [
+    330.0,
+    -60.0
+   ],
+   "footprint_m2": 1800
+  },
+  {
+   "id": "sports",
+   "name": "Sports Complex",
+   "kind": "sports",
+   "height": 12,
+   "polygon": [
+    [
+     381.2,
+     -100.9
+    ],
+    [
+     449.1,
+     -117.9
+    ],
+    [
+     458.8,
+     -79.1
+    ],
+    [
+     390.9,
+     -62.1
+    ]
+   ],
+   "centroid": [
+    420.0,
+    -90.0
+   ],
+   "footprint_m2": 2800
+  },
+  {
+   "id": "guest",
+   "name": "Guest House",
+   "kind": "guest",
+   "height": 12,
+   "polygon": [
+    [
+     480.4,
+     -126.4
+    ],
+    [
+     514.3,
+     -134.9
+    ],
+    [
+     519.6,
+     -113.6
+    ],
+    [
+     485.7,
+     -105.1
+    ]
+   ],
+   "centroid": [
+    500.0,
+    -120.0
+   ],
+   "footprint_m2": 770
+  }
+ ],
+ "paths": [
+  {
+   "name": "Campus Spine Road",
+   "kind": "road",
+   "points": [
+    [
+     -650,
+     165
+    ],
+    [
+     -430,
+     95
+    ],
+    [
+     -230,
+     40
+    ],
+    [
+     -13,
+     8
+    ],
+    [
+     180,
+     -25
+    ],
+    [
+     330,
+     -70
+    ],
+    [
+     500,
+     -140
+    ],
+    [
+     700,
+     -200
+    ]
+   ]
+  },
+  {
+   "name": "North Walkway",
+   "kind": "walk",
+   "points": [
+    [
+     -520,
+     230
+    ],
+    [
+     -360,
+     190
+    ],
+    [
+     -170,
+     120
+    ],
+    [
+     -13,
+     60
+    ],
+    [
+     130,
+     20
+    ],
+    [
+     300,
+     -30
+    ]
+   ]
+  },
+  {
+   "name": "South Walkway",
+   "kind": "walk",
+   "points": [
+    [
+     -330,
+     -80
+    ],
+    [
+     -125,
+     -150
+    ],
+    [
+     120,
+     -180
+    ],
+    [
+     300,
+     -230
+    ],
+    [
+     500,
+     -280
+    ]
+   ]
+  },
+  {
+   "name": "Path to Main Administrative Building",
+   "kind": "branch",
+   "points": [
+    [
+     -230,
+     40
+    ],
+    [
+     -230.0,
+     70.0
+    ]
+   ]
+  },
+  {
+   "name": "Path to Knowledge Resource Centre",
+   "kind": "branch",
+   "points": [
+    [
+     -230,
+     40
+    ],
+    [
+     -120.0,
+     60.0
+    ]
+   ]
+  },
+  {
+   "name": "Path to Sri Guru Nanak Dev Ji Auditorium",
+   "kind": "branch",
+   "points": [
+    [
+     -13,
+     8
+    ],
+    [
+     -13.0,
+     29.0
+    ]
+   ]
+  },
+  {
+   "name": "Path to Academic Block A (Engineering)",
+   "kind": "branch",
+   "points": [
+    [
+     -430,
+     95
+    ],
+    [
+     -430.0,
+     130.0
+    ]
+   ]
+  },
+  {
+   "name": "Path to Academic Block B (Engineering)",
+   "kind": "branch",
+   "points": [
+    [
+     -230,
+     40
+    ],
+    [
+     -330.0,
+     60.0
+    ]
+   ]
+  },
+  {
+   "name": "Path to Academic Block C (Management)",
+   "kind": "branch",
+   "points": [
+    [
+     -430,
+     95
+    ],
+    [
+     -520.0,
+     190.0
+    ]
+   ]
+  },
+  {
+   "name": "Path to Boys Hostel",
+   "kind": "branch",
+   "points": [
+    [
+     180,
+     -25
+    ],
+    [
+     110.0,
+     20.0
+    ]
+   ]
+  },
+  {
+   "name": "Path to Girls Hostel",
+   "kind": "branch",
+   "points": [
+    [
+     180,
+     -25
+    ],
+    [
+     180.0,
+     -10.0
+    ]
+   ]
+  },
+  {
+   "name": "Path to Cafeteria & Mess",
+   "kind": "branch",
+   "points": [
+    [
+     180,
+     -25
+    ],
+    [
+     250.0,
+     -40.0
+    ]
+   ]
+  },
+  {
+   "name": "Path to Workshop & Laboratories",
+   "kind": "branch",
+   "points": [
+    [
+     330,
+     -70
+    ],
+    [
+     330.0,
+     -60.0
+    ]
+   ]
+  },
+  {
+   "name": "Path to Sports Complex",
+   "kind": "branch",
+   "points": [
+    [
+     330,
+     -70
+    ],
+    [
+     420.0,
+     -90.0
+    ]
+   ]
+  },
+  {
+   "name": "Path to Guest House",
+   "kind": "branch",
+   "points": [
+    [
+     500,
+     -140
+    ],
+    [
+     500.0,
+     -120.0
+    ]
+   ]
+  }
+ ],
+ "pois": [
+  {
+   "name": "Main Administrative Building",
+   "kind": "entrance",
+   "xy": [
+    -230.0,
+    42.0
+   ],
+   "building_id": "admin"
+  },
+  {
+   "name": "Knowledge Resource Centre",
+   "kind": "entrance",
+   "xy": [
+    -147.5,
+    55.0
+   ],
+   "building_id": "library"
+  },
+  {
+   "name": "Sri Guru Nanak Dev Ji Auditorium",
+   "kind": "entrance",
+   "xy": [
+    -13.0,
+    1.0
+   ],
+   "building_id": "auditorium"
+  },
+  {
+   "name": "Academic Block A (Engineering)",
+   "kind": "entrance",
+   "xy": [
+    -430.0,
+    102.0
+   ],
+   "building_id": "acad_a"
+  },
+  {
+   "name": "Academic Block B (Engineering)",
+   "kind": "entrance",
+   "xy": [
+    -302.5,
+    54.5
+   ],
+   "building_id": "acad_b"
+  },
+  {
+   "name": "Academic Block C (Management)",
+   "kind": "entrance",
+   "xy": [
+    -500.7,
+    169.7
+   ],
+   "building_id": "acad_c"
+  },
+  {
+   "name": "Boys Hostel",
+   "kind": "entrance",
+   "xy": [
+    133.6,
+    4.9
+   ],
+   "building_id": "hostel_m"
+  },
+  {
+   "name": "Girls Hostel",
+   "kind": "entrance",
+   "xy": [
+    180.0,
+    -38.0
+   ],
+   "building_id": "hostel_f"
+  },
+  {
+   "name": "Cafeteria & Mess",
+   "kind": "entrance",
+   "xy": [
+    222.6,
+    -34.1
+   ],
+   "building_id": "cafeteria"
+  },
+  {
+   "name": "Workshop & Laboratories",
+   "kind": "entrance",
+   "xy": [
+    330.0,
+    -88.0
+   ],
+   "building_id": "workshop"
+  },
+  {
+   "name": "Sports Complex",
+   "kind": "entrance",
+   "xy": [
+    392.7,
+    -83.9
+   ],
+   "building_id": "sports"
+  },
+  {
+   "name": "Guest House",
+   "kind": "entrance",
+   "xy": [
+    500.0,
+    -148.0
+   ],
+   "building_id": "guest"
+  }
+ ]
+}

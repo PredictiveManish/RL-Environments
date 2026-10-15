@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+*.egg-info/
+build/
+dist/
+models/
+runs/
+*.gif
+*.mp4
+.pytest_cache/
+__pycache__
