@@ -30,6 +30,8 @@ def main() -> None:
     ap.add_argument("--lr", type=float, default=3e-4)
     ap.add_argument("--out", type=str, default="models/ppo_airport")
     ap.add_argument("--logdir", type=str, default="runs/airport")
+    ap.add_argument("--task", choices=["navigate", "dock_aircraft", "shuttle", "patrol"],
+                    default="navigate", help="mission to train on")
     args = ap.parse_args()
 
     # Imported here so the rest of the project works without SB3 installed.
@@ -50,8 +52,11 @@ def main() -> None:
         print("note: tensorboard not installed - logging disabled "
               "(pip install tensorboard to enable it)")
 
-    env = make_vec_env("AirportGround-v0", n_envs=args.n_envs, seed=args.seed)
-    eval_env = make_vec_env("AirportGround-v0", n_envs=1, seed=args.seed + 100)
+    env_kwargs = {"task": args.task}
+    env = make_vec_env("AirportGround-v0", n_envs=args.n_envs, seed=args.seed,
+                       env_kwargs=env_kwargs)
+    eval_env = make_vec_env("AirportGround-v0", n_envs=1, seed=args.seed + 100,
+                            env_kwargs=env_kwargs)
 
     model = PPO(
         "MlpPolicy",

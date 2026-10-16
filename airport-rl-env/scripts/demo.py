@@ -57,7 +57,7 @@ def scripted_action(raw) -> np.ndarray:
     lidar = raw._lidar()
     n = len(lidar)
     rx = ry = 0.0
-    thresh = 0.30
+    thresh = 0.28
     for i, r in enumerate(lidar):
         if r < thresh:
             a = -math.pi + i * (2.0 * math.pi / n)
@@ -65,12 +65,12 @@ def scripted_action(raw) -> np.ndarray:
             rx -= w * math.cos(a)
             ry -= w * math.sin(a)
 
-    vx = ax + 1.6 * rx
-    vy = ay + 1.6 * ry
+    vx = ax + 1.4 * rx
+    vy = ay + 1.4 * ry
     desired = math.atan2(vy, vx)  # angle to steer toward, in vehicle frame
 
-    steer = float(np.clip(desired * 1.6, -1.0, 1.0))
-    throttle = 1.0 if abs(desired) < 0.6 else 0.35
+    steer = float(np.clip(desired * 1.7, -1.0, 1.0))
+    throttle = 1.0 if abs(desired) < 0.9 else 0.5
     if dist < raw.cfg.goal_radius * 1.5:
         throttle = min(throttle, 0.6)
     return np.array([throttle, steer], dtype=np.float32)
@@ -81,8 +81,10 @@ def main() -> None:
     ap.add_argument("--episodes", type=int, default=5)
     ap.add_argument("--render", choices=["human", "rgb_array", "none"], default="human")
     ap.add_argument("--policy", choices=["scripted", "random"], default="scripted")
+    ap.add_argument("--task", choices=["navigate", "dock_aircraft", "shuttle", "patrol"],
+                    default="navigate", help="which mission the vehicle is assigned")
     ap.add_argument("--seed", type=int, default=0)
-    ap.add_argument("--max-steps", type=int, default=400)
+    ap.add_argument("--max-steps", type=int, default=800)
     ap.add_argument("--fps", type=int, default=20, help="real-time playback rate for --render human")
     ap.add_argument("--save-gif", type=str, default="")
     ap.add_argument("--loop", action=argparse.BooleanOptionalAction, default=True,
@@ -90,7 +92,7 @@ def main() -> None:
     args = ap.parse_args()
 
     render_mode = None if args.render == "none" else args.render
-    env = gym.make("AirportGround-v0", render_mode=render_mode)
+    env = gym.make("AirportGround-v0", render_mode=render_mode, task=args.task)
     raw = env.unwrapped
     frame_dt = 1.0 / max(args.fps, 1)
 

@@ -1,8 +1,11 @@
-"""Procedural parked-aircraft models (pure MJCF, no external assets).
+"""Procedural aircraft models (pure MJCF, no external assets).
 
 Each aircraft is a simplified narrow-body jet: fuselage, wings, tail and two
 engines. Everything is generated from primitives so the project has *zero*
 external model dependencies - it runs straight after ``pip install``.
+
+Aircraft are static by default (parked at a gate). Pass ``free=True`` to add a
+free joint so the aircraft can be driven along the taxiway by the environment.
 """
 
 from __future__ import annotations
@@ -16,13 +19,14 @@ def aircraft_xml(
     yaw: float = 0.0,
     colour: Sequence[float] = (0.9, 0.92, 0.95, 1.0),
     accent: Sequence[float] = (0.15, 0.35, 0.65, 1.0),
+    free: bool = False,
 ) -> str:
-    """Return the MJCF ``<body>`` for one parked aircraft, nose facing +X."""
+    """Return the MJCF ``<body>`` for one aircraft, nose facing +X (before yaw)."""
     r, g, b, a = colour
     ar, ag, ab, aa = accent
-    # Fuselage lies along X (cylinder is Z-aligned by default -> rotate 90 deg).
+    joint = f'\n      <freejoint name="{name}_joint"/>' if free else ""
     return f"""
-    <body name="{name}" pos="{pos[0]} {pos[1]} {pos[2]}" euler="0 0 {yaw}">
+    <body name="{name}" pos="{pos[0]} {pos[1]} {pos[2]}" euler="0 0 {yaw}">{joint}
       <geom name="{name}_fuselage" type="capsule" fromto="-8 0 0 8 0 0"
             size="1.6" rgba="{r} {g} {b} {a}"/>
       <geom name="{name}_nose" type="sphere" pos="8 0 0" size="1.6"

@@ -1,15 +1,22 @@
 """The Airport RL environment (Gymnasium + MuJoCo).
 
-Task
-----
-A ground vehicle (a "baggage tug" / pushback tractor) must drive across the
-airport apron from a start stand to a target gate, avoiding parked aircraft,
-buildings and moving ground traffic. The vehicle is driven by a unicycle
-velocity controller, so the policy learns smooth steering + throttle control.
+Missions
+--------
+A ground vehicle (a "baggage tug" / pushback tractor) works the airport apron.
+Pick the job with ``task=`` (see ``EnvConfig.task``):
+
+* ``"navigate"``       - drive to a gate stand (point-to-point).
+* ``"dock_aircraft"``  - dock precisely at the nose of a parked aircraft.
+* ``"shuttle"``        - two-leg delivery: baggage hall -> gate stand.
+* ``"patrol"``         - follow a multi-waypoint route along the apron lanes.
+
+The scene also contains live elements the vehicle must work around: parked
+aircraft and turnaround trucks at every gate, ambient ground traffic, and
+aircraft taxiing along the parallel taxiway.
 
 Observation
 -----------
-A flat vector: relative goal info + ego state + a ring of lidar range readings.
+Flat vector: relative goal (current waypoint) info + ego state + lidar ring.
 Optionally an RGB image (see ``EnvConfig.include_rgb``).
 
 Action
@@ -18,13 +25,14 @@ Action
 
 Reward
 ------
-Progress toward the goal, a heading bonus, a small time penalty, a big bonus on
-reaching the gate and a big penalty (with termination) on collision.
+Progress toward the current waypoint, a heading bonus, a small time penalty,
+a bonus per intermediate waypoint, a big bonus on completing the mission, and a
+big penalty (with termination) on collision.
 """
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
@@ -48,23 +56,28 @@ from ..utils.math_utils import (
 )
 from .config import AirportConfig, EnvConfig
 
+VALID_TASKS = ("navigate", "dock_aircraft", "shuttle", "patrol")
+
 
 class AirportGroundEnv(gym.Env):
-    """Gymnasium environment: navigate a ground vehicle across an airport apron."""
+    """Gymnasium environment: airport ground-vehicle operations."""
 
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 20}
-
 
     def __init__(
         self,
         render_mode: Optional[str] = None,
         airport: Optional[AirportConfig] = None,
         config: Optional[EnvConfig] = None,
+        task: Optional[str] = None,
     ):
         super().__init__()
         self.cfg = config or EnvConfig()
         self.airport = airport or AirportConfig()
         self.render_mode = render_mode
+        self.task = task or self.cfg.task
+        if self.task not in VALID_TASKS:
+            raise ValueError(f"task must be one of {VALID_TASKS}, got {self.task!r}")
 
         # ---- Build the scene ------------------------------------------
         scene = AirportScene(self.airport)
@@ -84,9 +97,9 @@ class AirportGroundEnv(gym.Env):
             mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY, f"mover_{i}")
             for i in range(self.airport.n_movers)
         ]
-        self.mover_joints = [
-            mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, f"mover_{i}_joint")
-            for i in range(self.airport.n_movers)
+        self.taxi_bodies = [
+            mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY, f"taxi_{i}")
+            for i in range(self.airport.n_taxi_aircraft)
         ]
 
         # Geoms whose contacts with the agent are "drivable" (ignored)
@@ -96,8 +109,6 @@ class AirportGroundEnv(gym.Env):
             if name.startswith(self._meta["driveable_prefix"]):
                 self.driveable_geoms.add(gid)
 
-        # Lidar ray directions (in the agent's own frame is unnecessary; we cast
-        # in world axes and rotate by yaw at query time).
         self.ray_dirs = lidar_directions(self.cfg.n_rays)
 
         # ---- Spaces ----------------------------------------------------
@@ -120,8 +131,12 @@ class AirportGroundEnv(gym.Env):
         # ---- Episode state --------------------------------------------
         self._step_count = 0
         self._goal = np.zeros(2, np.float32)
+        self._route: List[Tuple[float, float]] = []
+        self._wp = 0
+        self._wp_radius = self.cfg.goal_radius
         self._prev_dist = 0.0
-        self._t = 0.0  # global clock for mover animation
+        self._t = 0.0
+        self._active_task = self.task
 
         # ---- Rendering -------------------------------------------------
         self._viewer = None
@@ -146,21 +161,35 @@ class AirportGroundEnv(gym.Env):
         yaw0 = float(self.np_random.uniform(-np.pi, np.pi))
         self._set_free_body_pose(self.agent_body, (sx, sy, sz), yaw0)
 
-        # Goal: pick a gate (optionally forced through ``options``)
+        # Which gate this episode is about (forced via ``options`` if given)
         gates = self._meta["gate_positions"]
         if options and "gate_index" in options:
             gi = int(options["gate_index"]) % len(gates)
         else:
             gi = int(self.np_random.integers(len(gates)))
-        self._goal = np.array(gates[gi], dtype=np.float32)
         self._gate_index = gi
 
-        self._update_movers(0.0)
+        # Mission can be overridden per-episode
+        self._active_task = (options or {}).get("task", self.task)
+        if self._active_task not in VALID_TASKS:
+            raise ValueError(f"task must be one of {VALID_TASKS}")
+
+        self._route = self._build_route(self._active_task, gi)
+        self._wp_radius = self._task_radius(self._active_task)
+        self._wp = 0
+        self._goal = np.array(self._route[0], dtype=np.float32)
+
+        self._update_moving(0.0)
         mujoco.mj_forward(self.model, self.data)
 
         self._prev_dist = self._distance_to_goal()
         obs = self._get_obs()
-        info = {"gate_index": gi, "distance": float(self._prev_dist)}
+        info = {
+            "task": self._active_task,
+            "gate_index": gi,
+            "n_waypoints": len(self._route),
+            "distance": float(self._prev_dist),
+        }
         return obs, info
 
     def step(self, action: np.ndarray):
@@ -170,14 +199,13 @@ class AirportGroundEnv(gym.Env):
         speed = throttle * (self.cfg.max_speed if throttle >= 0 else self.cfg.max_reverse_speed)
         yaw_rate = steer * self.cfg.max_yaw_rate
 
-        # Integrate the unicycle controller for one control step
         for _ in range(self.cfg.frame_skip):
             self._drive_agent(speed, yaw_rate)
             mujoco.mj_step(self.model, self.data)
 
         self._step_count += 1
         self._t += self.cfg.frame_skip * self.cfg.sim_dt
-        self._update_movers(self._t)
+        self._update_moving(self._t)
 
         dist = self._distance_to_goal()
         collision = self._check_collision()
@@ -195,19 +223,29 @@ class AirportGroundEnv(gym.Env):
         if collision:
             reward += self.cfg.w_collision
             terminated = True
-        elif dist < self.cfg.goal_radius:
-            reward += self.cfg.w_success
-            is_success = True
-            terminated = True
+        elif dist < self._wp_radius:
+            # Reached this waypoint - advance the mission
+            self._wp += 1
+            if self._wp >= len(self._route):
+                reward += self.cfg.w_success
+                is_success = True
+                terminated = True
+            else:
+                reward += self.cfg.w_waypoint
+                self._goal = np.array(self._route[self._wp], dtype=np.float32)
+                dist = self._distance_to_goal()
         elif self._step_count >= self.cfg.max_steps:
             truncated = True
 
         self._prev_dist = dist
         obs = self._get_obs()
         info = {
+            "task": self._active_task,
             "is_success": is_success,
             "collision": collision,
             "distance": float(dist),
+            "waypoint": self._wp,
+            "n_waypoints": len(self._route),
             "gate_index": self._gate_index,
         }
         return obs, float(reward), terminated, truncated, info
@@ -231,6 +269,28 @@ class AirportGroundEnv(gym.Env):
             self._renderer = None
 
     # ==================================================================
+    # Missions
+    # ==================================================================
+    def _build_route(self, task: str, gi: int) -> List[Tuple[float, float]]:
+        if task == "navigate":
+            return [tuple(self._meta["gate_positions"][gi])]
+        if task == "dock_aircraft":
+            ax, ay = self._meta["aircraft_positions"][gi]
+            return [(float(ax), float(ay) - self.airport.dock_offset)]
+        if task == "shuttle":
+            return [tuple(self._meta["baggage_dock"]), tuple(self._meta["gate_positions"][gi])]
+        if task == "patrol":
+            return [tuple(p) for p in self._meta["patrol_route"]]
+        raise ValueError(f"unknown task {task!r}")
+
+    def _task_radius(self, task: str) -> float:
+        if task == "dock_aircraft":
+            return self.cfg.dock_radius
+        if task == "patrol":
+            return self.cfg.patrol_radius
+        return self.cfg.goal_radius
+
+    # ==================================================================
     # Internals
     # ==================================================================
     def _drive_agent(self, speed: float, yaw_rate: float):
@@ -243,7 +303,6 @@ class AirportGroundEnv(gym.Env):
         self.data.qvel[adr + 3] = 0.0
         self.data.qvel[adr + 4] = 0.0
         self.data.qvel[adr + 5] = yaw_rate
-        # Keep the body flat on the ground at a fixed height
         self.data.qpos[self.agent_qpos_adr + 2] = self.airport.agent_start[2]
         self.data.qpos[self.agent_qpos_adr + 3:self.agent_qpos_adr + 7] = quat_from_yaw(yaw)
 
@@ -255,28 +314,41 @@ class AirportGroundEnv(gym.Env):
         self.data.qpos[adr + 2] = pos[2]
         self.data.qpos[adr + 3:adr + 7] = quat_from_yaw(yaw)
 
-    def _update_movers(self, t: float):
-        """Animate ambient traffic along ping-pong patrol routes."""
-        routes = self._meta["mover_waypoints"]
-        for i, (p0, p1) in enumerate(routes):
-            p0 = np.asarray(p0, float)
-            p1 = np.asarray(p1, float)
-            seg = p1 - p0
-            length = float(np.hypot(*seg)) + 1e-6
-            period = 2.0 * length / self.airport.mover_speed
-            phase = (t % period) / period
-            u = phase if phase <= 0.5 else 1.0 - phase  # ping-pong 0..1..0
-            pos = p0 + u * seg
-            direction = seg if phase <= 0.5 else -seg
-            yaw = float(np.arctan2(direction[1], direction[0]))
+    def _pingpong(self, p0, p1, speed, t):
+        """Position + heading along a ping-pong segment at time ``t``."""
+        p0 = np.asarray(p0, float)
+        p1 = np.asarray(p1, float)
+        seg = p1 - p0
+        length = float(np.hypot(*seg)) + 1e-6
+        period = 2.0 * length / max(speed, 1e-6)
+        phase = (t % period) / period
+        u = phase if phase <= 0.5 else 1.0 - phase
+        pos = p0 + u * seg
+        direction = seg if phase <= 0.5 else -seg
+        yaw = float(np.arctan2(direction[1], direction[0]))
+        return pos, yaw
+
+    def _zero_qvel(self, body_id: int):
+        jid = self.model.body_jntadr[body_id]
+        adr = self.model.jnt_dofadr[jid]
+        self.data.qvel[adr:adr + 6] = 0.0
+
+    def _update_moving(self, t: float):
+        """Animate ambient traffic and taxiing aircraft."""
+        # Ground traffic
+        for i, (p0, p1) in enumerate(self._meta["mover_waypoints"]):
+            pos, yaw = self._pingpong(p0, p1, self.airport.mover_speed, t)
             self._set_free_body_pose(
-                self.mover_bodies[i],
-                (pos[0], pos[1], self.airport.mover_half[2]),
-                yaw,
+                self.mover_bodies[i], (pos[0], pos[1], self.airport.mover_half[2]), yaw
             )
-            jid = self.model.body_jntadr[self.mover_bodies[i]]
-            adr = self.model.jnt_dofadr[jid]
-            self.data.qvel[adr:adr + 6] = 0.0
+            self._zero_qvel(self.mover_bodies[i])
+        # Taxiing aircraft on the parallel taxiway
+        for i, (p0, p1) in enumerate(self._meta["taxi_routes"]):
+            pos, yaw = self._pingpong(p0, p1, self.airport.taxi_aircraft_speed, t)
+            self._set_free_body_pose(
+                self.taxi_bodies[i], (pos[0], pos[1], self.airport.aircraft_z), yaw
+            )
+            self._zero_qvel(self.taxi_bodies[i])
         mujoco.mj_forward(self.model, self.data)
 
     def _x(self) -> float:

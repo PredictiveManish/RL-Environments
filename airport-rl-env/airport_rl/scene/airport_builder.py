@@ -2,16 +2,18 @@
 
 Everything is generated procedurally from primitives, so there are no external
 mesh files to download. ``AirportScene.build()`` returns the XML string plus a
-metadata dict the environment uses (gate positions, mover patrol routes, the
-names of the drivable surfaces, etc.).
+metadata dict the environment uses (gate positions, mission target points,
+patrol routes, drivable surface names, etc.).
 """
 
 from __future__ import annotations
 
 from typing import Dict, List, Tuple
 
+import numpy as np
+
 from .aircraft_factory import aircraft_xml
-from .vehicle_factory import agent_xml, mover_xml
+from .vehicle_factory import agent_xml, mover_xml, service_vehicle_xml
 
 
 def _f(v) -> str:
@@ -28,6 +30,10 @@ class AirportScene:
         body_parts: List[str] = []
 
         # ---- Ground + movement surfaces (all "drivable") ---------------
+        # Non-colliding (contype/conaffinity = 0): the vehicle drives *over*
+        # them, and without this their surface friction would fight the
+        # velocity controller. Collision detection only cares about buildings,
+        # aircraft, vehicles and traffic, which keep normal contacts.
         body_parts.append(
             f'<geom name="drive_ground" type="plane" size="420 420 0.1" '
             f'material="grid" contype="0" conaffinity="0"/>'
@@ -36,12 +42,11 @@ class AirportScene:
         body_parts.append(self._slab("drive_taxiway", cfg.taxiway_pos, cfg.taxiway_half, cfg.col_taxiway, solid=False))
         body_parts.append(self._slab("drive_apron", cfg.apron_pos, cfg.apron_half, cfg.col_apron, solid=False))
 
-        # ---- Runway markings (thin white strips, not drivable) ---------
+        # ---- Runway / taxiway markings ---------------------------------
         body_parts += self._runway_markings()
 
         # ---- Buildings -------------------------------------------------
         body_parts.append(self._slab("terminal", cfg.terminal_pos, cfg.terminal_half, cfg.col_terminal))
-        # Terminal roof lip for a little silhouette
         tp = cfg.terminal_pos
         th = cfg.terminal_half
         body_parts.append(
@@ -49,13 +54,11 @@ class AirportScene:
             f'pos="{tp[0]} {tp[1]} {tp[2] + th[2] + 0.4}" '
             f'size="{th[0] + 1.5} {th[1] + 1.5} 0.4" rgba="0.55 0.60 0.66 1"/>'
         )
-        # Glazed landside/apron facade band for a bit of realism
         body_parts.append(
             f'<geom name="terminal_glass" type="box" contype="0" conaffinity="0" '
             f'pos="{tp[0]} {tp[1] - th[1] - 0.15} {tp[2] * 0.85}" '
             f'size="{th[0] * 0.99} 0.2 {th[2] * 0.55}" rgba="0.20 0.34 0.46 1"/>'
         )
-        # Control tower: column + cabin
         tw = cfg.tower_pos
         body_parts.append(
             f'<geom name="tower_column" type="cylinder" '
@@ -82,10 +85,10 @@ class AirportScene:
         body_parts.append(self._slab("maintenance_hangar", cfg.maintenance_pos, cfg.maintenance_half,
                                      (0.60, 0.62, 0.66, 1.0)))
 
-        # ---- Gates: stand marking + a parked aircraft each -------------
+        # ---- Gates: marking + parked aircraft + turnaround vehicles -----
         gate_positions: List[Tuple[float, float]] = []
+        aircraft_positions: List[Tuple[float, float]] = []
         for i, gx in enumerate(cfg.gate_xs):
-            # Stand marking just in front of the aircraft (toward the apron)
             stand_y = cfg.gate_y - 9.0
             body_parts.append(
                 f'<geom name="gate_{i}_mark" type="box" contype="0" conaffinity="0" '
@@ -95,12 +98,30 @@ class AirportScene:
                 aircraft_xml(f"aircraft_{i}", (gx, cfg.gate_y, cfg.aircraft_z), yaw=-1.5708,
                              colour=cfg.col_aircraft)
             )
+            # Turnaround trucks beside the fuselage (fuel bowser + caterer)
+            body_parts.append(service_vehicle_xml(
+                f"fuel_truck_{i}",
+                (gx + cfg.service_offset_x, cfg.service_y, 0.55),
+                cfg.col_fuel_truck, kind="fuel"))
+            body_parts.append(service_vehicle_xml(
+                f"catering_truck_{i}",
+                (gx - cfg.service_offset_x, cfg.service_y, 0.55),
+                cfg.col_catering, kind="catering"))
             gate_positions.append((gx, stand_y))
+            aircraft_positions.append((gx, cfg.gate_y))
+
+        # ---- Live taxiing aircraft on the parallel taxiway -------------
+        taxi_routes = self._taxi_routes()
+        for i, (p0, _p1) in enumerate(taxi_routes):
+            body_parts.append(
+                aircraft_xml(f"taxi_{i}", (p0[0], p0[1], cfg.aircraft_z), yaw=0.0,
+                             colour=cfg.col_taxi_aircraft, free=True)
+            )
 
         # ---- Agent -----------------------------------------------------
         body_parts.append(agent_xml("agent", cfg.agent_start, cfg.agent_half, cfg.col_agent))
 
-        # ---- Ambient traffic (moving obstacles) ------------------------
+        # ---- Ambient ground traffic (moving obstacles) -----------------
         mover_waypoints = self._mover_routes()
         for i, (p0, _p1) in enumerate(mover_waypoints):
             body_parts.append(
@@ -111,7 +132,11 @@ class AirportScene:
 
         meta = {
             "gate_positions": gate_positions,
+            "aircraft_positions": aircraft_positions,
             "mover_waypoints": mover_waypoints,
+            "taxi_routes": taxi_routes,
+            "baggage_dock": tuple(cfg.baggage_dock),
+            "patrol_route": [tuple(p) for p in cfg.patrol_route],
             "driveable_prefix": "drive_",
         }
         return xml, meta
@@ -124,13 +149,11 @@ class AirportScene:
             f'size="{_f(half)}" rgba="{_f(colour)}"/>'
         )
 
-
     def _runway_markings(self) -> List[str]:
         cfg = self.cfg
         rx, ry, _ = cfg.runway_pos
         half_len = cfg.runway_half[0]
         parts = []
-        # Dashed centreline
         n = 14
         for i in range(n):
             x = -half_len + (2 * half_len) * (i + 0.5) / n
@@ -138,14 +161,12 @@ class AirportScene:
                 f'<geom name="rwy_centre_{i}" type="box" contype="0" conaffinity="0" '
                 f'pos="{x:.3f} {ry} 0.11" size="4.0 0.5 0.02" rgba="{_f(cfg.col_marking)}"/>'
             )
-        # Threshold bars at both ends
         for k, sx in enumerate((-half_len + 4.0, half_len - 4.0)):
             for j, oy in enumerate((-5.0, -2.0, 2.0, 5.0)):
                 parts.append(
                     f'<geom name="rwy_thr_{k}_{j}" type="box" contype="0" conaffinity="0" '
                     f'pos="{sx:.3f} {ry + oy} 0.11" size="1.0 0.7 0.02" rgba="{_f(cfg.col_marking)}"/>'
                 )
-        # Taxiway centreline
         ty = cfg.taxiway_pos[1]
         for i in range(n):
             x = -half_len + (2 * half_len) * (i + 0.5) / n
@@ -156,11 +177,12 @@ class AirportScene:
         return parts
 
     def _mover_routes(self):
-        """Deterministic patrol segments for the ambient traffic."""
-        # Patrol lanes stay in the open apron *in front of* the aircraft
-        # (y <= -20, clear of the stands at y in [-16, 0]), and clear of the
-        # fuel depot (x < -121), baggage hall (x > 114) and maintenance
-        # hangar (y < -50).
+        """Deterministic patrol segments for the ambient ground traffic.
+
+        Lanes stay in the open apron *in front of* the aircraft (y <= -20),
+        clear of the stands, the fuel depot (x < -121), baggage hall (x > 114)
+        and maintenance hangar (y < -50).
+        """
         routes = [
             ((-100.0, -22.0), (100.0, -22.0)),
             ((100.0, -32.0), (-100.0, -32.0)),
@@ -170,6 +192,18 @@ class AirportScene:
             ((85.0, -20.0), (-85.0, -20.0)),
         ]
         return routes[: self.cfg.n_movers]
+
+    def _taxi_routes(self):
+        """Give each taxiing aircraft its own sub-segment of the taxiway so
+        they never overlap each other."""
+        cfg = self.cfg
+        y = cfg.taxi_y
+        n = max(1, cfg.n_taxi_aircraft)
+        xs = np.linspace(-cfg.taxi_x_span, cfg.taxi_x_span, n + 1)
+        segs = []
+        for i in range(n):
+            segs.append(((float(xs[i]) + 6.0, y), (float(xs[i + 1]) - 6.0, y)))
+        return segs
 
     # ------------------------------------------------------------------
     @staticmethod
